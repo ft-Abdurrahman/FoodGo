@@ -52,3 +52,8 @@ app.*.map.json
 .env.*
 serviceAccountKey.json
 firebase-adminsdk*.json
+
+android/local.properties
+
+.idea/
+.dart_tool/
