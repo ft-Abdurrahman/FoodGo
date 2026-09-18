@@ -1,0 +1,140 @@
+// Firebase Firestore Security Rules
+// Deploy with: firebase deploy --only firestore:rules
+//
+// These rules enforce:
+// - Customers can only read/write their own data
+// - Only admins can manage restaurants, foods, categories, banners
+// - All users can read restaurants, foods, categories, banners
+// - Order access is restricted to the order owner and admins
+// - No one can escalate their own role to admin
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ───
+
+    // Check if the user is signed in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the user's role from their user document
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ─── Users collection ───
+
+    match /users/{userId} {
+      // Any authenticated user can read their own profile
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Users can create their own profile (during signup)
+      // But cannot set role to 'admin' (prevents privilege escalation)
+      allow create: if isAuthenticated()
+                    && request.auth.uid == userId
+                    && request.resource.data.role == 'customer';
+
+      // Users can update their own profile
+      // But cannot change their role (prevents self-escalation to admin)
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+
+      // Only admins can update other users (e.g., to change roles)
+      allow update: if isAdmin();
+
+      // Users can delete their own account
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // ─── User subcollections ───
+
+      // Addresses: only the user can manage their own addresses
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Favorites: only the user can manage their own favorites
+      match /favorites/{favoriteId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ─── Restaurants collection ───
+
+    match /restaurants/{restaurantId} {
+      // Everyone can read restaurants (needed for browsing)
+      allow read: if true;
+
+      // Only admins can create, update, or delete restaurants
+      allow create, update, delete: if isAdmin();
+
+      // ─── Foods subcollection ───
+
+      match /foods/{foodId} {
+        // Everyone can read food items
+        allow read: if true;
+
+        // Only admins can manage food items
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    // ─── Categories collection ───
+
+    match /categories/{categoryId} {
+      // Everyone can read categories
+      allow read: if true;
+
+      // Only admins can manage categories
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Banners collection ───
+
+    match /banners/{bannerId} {
+      // Everyone can read banners
+      allow read: if true;
+
+      // Only admins can manage banners
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Orders collection ───
+
+    match /orders/{orderId} {
+      // Users can read their own orders; admins can read all
+      allow read: if isAuthenticated()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Users can create orders (placing an order)
+      // The userId in the order must match the authenticated user (prevents spoofing)
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own orders (e.g., cancel)
+      // But only certain fields - status changes should be admin-only
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    // Users can only cancel orders (change status to 'cancelled')
+                    && request.resource.data.status == 'cancelled'
+                    && resource.data.status == 'placed';
+
+      // Admins can update any order (status changes, etc.)
+      allow update: if isAdmin();
+
+      // Only admins can delete orders
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,57 @@
+// Firebase Storage Security Rules
+// Deploy with: firebase deploy --only storage
+//
+// These rules enforce:
+// - Authenticated users can upload profile images to their own folder
+// - Admins can upload to any folder (restaurants, foods, banners)
+// - Everyone can read images (needed for displaying in the app)
+// - File size is limited to prevent abuse
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Profile images ───
+    // Users can upload/replace their own profile image
+    // Format: profiles/{userId}/{filename}
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   // Limit file size to 5MB
+                   && request.resource.size < 5 * 1024 * 1024
+                   // Only allow image files
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // ─── Restaurant images ───
+    // Only admins can upload restaurant images
+    match /restaurants/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // ─── Food images ───
+    // Only admins can upload food images
+    match /foods/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // ─── Banner images ───
+    // Only admins can upload banner images
+    match /banners/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

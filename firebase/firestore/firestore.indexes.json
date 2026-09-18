@@ -1,0 +1,36 @@
+{
+  "fieldOverrides": [],
+  "indexes": [
+    {
+      "collectionGroup": "foods",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "isAvailable", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "foods",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "name", "order": "ASCENDING" },
+        { "fieldPath": "isAvailable", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    }
+  ]
+}
